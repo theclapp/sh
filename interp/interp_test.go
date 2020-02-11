@@ -93,7 +93,11 @@ func TestMain(m *testing.M) {
 
 		os.Exit(0)
 	}
-	os.Setenv("GOSH_PROG", os.Args[0])
+	prog, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	os.Setenv("GOSH_PROG", prog)
 
 	os.Setenv("LANGUAGE", "en_US.UTF8")
 	os.Setenv("LC_ALL", "en_US.UTF8")
@@ -488,6 +492,22 @@ var runTests = []runTest{
 		"INTERP_GLOBAL INTERP_X_1 INTERP_X_2\n",
 	},
 	{
+		`INTERP_X_2=b INTERP_X_1=a; set -- ${!INTERP_*}; echo $#`,
+		"3\n",
+	},
+	{
+		`INTERP_X_2=b INTERP_X_1=a; set -- "${!INTERP_*}"; echo $#`,
+		"1\n",
+	},
+	{
+		`INTERP_X_2=b INTERP_X_1=a; set -- ${!INTERP_@}; echo $#`,
+		"3\n",
+	},
+	{
+		`INTERP_X_2=b INTERP_X_1=a; set -- "${!INTERP_@}"; echo $#`,
+		"3\n",
+	},
+	{
 		`a='b  c'; eval "echo -n ${a} ${a@Q}"`,
 		`b c b  c`,
 	},
@@ -673,11 +693,11 @@ var runTests = []runTest{
 		"x\ny\nx\n",
 	},
 	{
-		`x["x"]=x; (x["x"]=y); echo ${x[0]}`,
+		`x[3]=x; (x[3]=y); echo ${x[3]}`,
 		"x\n",
 	},
 	{
-		"shopt -s expand_aliases; alias f='echo x'\nf\n(f\nalias f='echo y'\nf\n)\nf\n",
+		"shopt -s expand_aliases; alias f='echo x'\nf\n(f\nalias f='echo y'\neval f\n)\nf\n",
 		"x\nx\ny\nx\n",
 	},
 	{
@@ -1753,11 +1773,17 @@ set +o pipefail
 	// IFS
 	{`echo -n "$IFS"`, " \t\n"},
 	{`a="x:y:z"; IFS=:; echo $a`, "x y z\n"},
+	{`a=(x y z); IFS=-; echo ${a[*]}`, "x y z\n"},
+	{`a=(x y z); IFS=-; echo ${a[@]}`, "x y z\n"},
 	{`a=(x y z); IFS=-; echo "${a[*]}"`, "x-y-z\n"},
 	{`a=(x y z); IFS=-; echo "${a[@]}"`, "x y z\n"},
 	{`a="  x y z"; IFS=; echo $a`, "  x y z\n"},
 	{`a=(x y z); IFS=; echo "${a[*]}"`, "xyz\n"},
 	{`a=(x y z); IFS=-; echo "${!a[@]}"`, "0 1 2\n"},
+	{`set -- x y z; IFS=-; echo $*`, "x y z\n"},
+	{`set -- x y z; IFS=-; echo "$*"`, "x-y-z\n"},
+	{`set -- x y z; IFS=; echo $*`, "x y z\n"},
+	{`set -- x y z; IFS=; echo "$*"`, "xyz\n"},
 
 	// builtin
 	{"builtin", ""},
@@ -2367,10 +2393,15 @@ var runTestsUnix = []runTest{
 		"[[ ~root == '~root' ]]",
 		"exit status 1",
 	},
+
+	// windows does not support paths with '*'
 	{
-		// windows does not support dirs named '*'
 		"mkdir -p '*/a.z' 'b/a.z'; cd '*'; set -- *.z; echo $#",
 		"1\n",
+	},
+	{
+		"mkdir -p 'a-*/d'; test -d $PWD/a-*/*",
+		"",
 	},
 
 	// no fifos on windows

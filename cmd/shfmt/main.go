@@ -67,9 +67,9 @@ func main1() int {
 	flag.Usage = func() {
 		fmt.Fprint(os.Stderr, `usage: shfmt [flags] [path ...]
 
-If no arguments are given, standard input will be used. If a given path
-is a directory, it will be recursively searched for shell files - both
-by filename extension and by shebang.
+If the only argument is a dash ('-') or no arguments are given, standard input
+will be used. If a given path is a directory, it will be recursively searched
+for shell files - both by filename extension and by shebang.
 
   -version  show version and exit
 
@@ -155,7 +155,7 @@ Utilities:
 	} else if f, ok := out.(*os.File); ok && terminal.IsTerminal(int(f.Fd())) {
 		color = true
 	}
-	if flag.NArg() == 0 {
+	if flag.NArg() == 0 || (flag.NArg() == 1 && flag.Arg(0) == "-") {
 		if err := formatStdin(); err != nil {
 			if err != errChangedWithDiff {
 				fmt.Fprintln(os.Stderr, err)
